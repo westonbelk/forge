@@ -1,0 +1,53 @@
+---
+namespace: test
+vm_location: "/home/VMs"
+
+networks:
+  lan:
+    domain: cuccdc
+    subnet: 255.255.255.0
+    gateway: 10.15.15.1
+    dhcp_start: 10.15.15.2
+    dhcp_end: 10.15.15.254
+
+
+guests:
+
+
+  first_vm:
+    # Template
+    disk_template: local_centos
+    os_type: rhel7
+
+    # Hardware
+    mem: 2048 # MB
+    cpus: 2
+    disk_size: 6G
+
+    # Network
+    network: lan
+    ipv4_addr: 10.15.15.5
+
+    # Configuration
+    root_pass: cucyber
+
+
+
+  second_vm:
+    # Template
+    disk_template: local_centos
+    os_type: rhel7
+
+    # Hardware
+    mem: 2048 # MB
+    cpus: 2
+    disk_size: 6G
+
+    # Network
+    network: lan
+    ipv4_addr: 10.15.15.6
+
+    # Configuration
+    root_pass: cucyber
+
+

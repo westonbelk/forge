@@ -1,0 +1,90 @@
+---
+- name: create VMs
+  hosts: localhost
+  become: true
+
+  tasks:
+
+    ## Create Disks ##
+    - name: create namespace folder
+      file:
+        path: "{{ vm_location }}/{{ namespace }}"
+        state: directory
+        mode: 0755
+
+    - name: get VM disks
+      command: "ls {{ vm_location }}/{{ namespace }}"
+      register: disks
+      changed_when: "disks.rc != 0"
+
+    - name: create disk
+      command: >
+               virt-builder
+               {{ item.value.disk_template }}
+               --format qcow2
+               -o {{ vm_location }}/{{ namespace }}/{{ item.key }}.qcow2
+               --root-password password:{{ item.value.root_pass }}
+               --size {{ item.value.disk_size }}
+      when: item.key not in disks.stdout
+      with_dict: "{{ guests }}"
+
+
+    ## Create Networks ##
+
+    - name: get list of networks
+      virt_net: 
+        command: list_nets
+      register: existing_networks
+
+    - name: create networks
+      virt_net:
+        command: define
+        name: "{{ namespace }}_{{ item.key }}"
+        xml: '{{ lookup("template", "../templates/network_nat.xml.j2") }}'
+      when: (namespace + "_" + item.key) not in existing_networks.list_nets
+      with_dict: "{{ networks }}"
+
+    - name: Ensure the networks are active
+      virt_net:
+        state: active
+        name: "{{ namespace }}_{{ item.key }}"
+      with_dict: "{{ networks }}"
+
+
+    ## Create VMs ##
+
+    - name: get list of VMs
+      virt:
+        command: "list_vms"
+      register: vms 
+
+    - name: create vm
+      command: >
+                virt-install 
+                --import 
+                --name {{ namespace }}_{{ item.key }}
+                --memory {{ item.value.mem }} 
+                --vcpus {{ item.value.cpus }}
+                --disk {{ vm_location }}/{{ namespace }}/{{ item.key }}.qcow2
+                --os-variant {{ item.value.os_type }}
+                --noautoconsole
+                --network network={{ namespace }}_{{ item.value.network }}
+      when: (namespace + "_" + item.key) not in vms.list_vms
+      with_dict: "{{ guests }}"
+
+
+    ## Start Networks and VMs ##
+    - name: start vm
+      virt:
+        name: "{{ namespace }}_{{ item.key }}"
+        state: running
+      with_dict: "{{ guests }}"
+
+
+
+#
+# Add the following option to your virt-builder command to automatically
+# set the hostname for the guest VM
+#
+#--firstboot-command 'hostnamectl set-hostname {{ item.key }} && reboot'
+#
